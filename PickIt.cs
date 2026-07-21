@@ -17,6 +17,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using ExileCore.PoEMemory;
+using PickIt.Editor;
 using SharpDX;
 using SDxVector2 = SharpDX.Vector2;
 using Vector2 = System.Numerics.Vector2;
@@ -53,14 +54,18 @@ public partial class PickIt : BaseSettingsPlugin<PickItSettings>
 
         Settings.PickUpKey.OnValueChanged += () => Input.RegisterKey(Settings.PickUpKey);
         Settings.ProfilerHotkey.OnValueChanged += () => Input.RegisterKey(Settings.ProfilerHotkey);
+        Settings.GrabItemKey.OnValueChanged += () => Input.RegisterKey(Settings.GrabItemKey);
 
         Input.RegisterKey(Settings.PickUpKey);
         Input.RegisterKey(Settings.ProfilerHotkey);
+        Input.RegisterKey(Settings.GrabItemKey);
         Input.RegisterKey(Keys.Escape);
 
         #endregion
         
         Task.Run(RulesDisplay.LoadAndApplyRules);
+        AttributeCatalog.ProbeAndPrune(key =>
+            DebugWindow.LogError($"[PickIt] Filter attribute '{key}' is not supported by this ItemFilterLibrary build; hidden from editor.", 5));
         GameController.PluginBridge.SaveMethod("PickIt.ListItems", () => GetItemsToPickup(false).Select(x => x.QueriedItem).ToList());
         GameController.PluginBridge.SaveMethod("PickIt.IsActive", () => _pickUpTask?.GetAwaiter().IsCompleted == false);
         GameController.PluginBridge.SaveMethod("PickIt.SetWorkMode", (bool running) => { _pluginBridgeModeOverride = running; });
@@ -109,9 +114,60 @@ public partial class PickIt : BaseSettingsPlugin<PickItSettings>
 
     public override Job Tick()
     {
+        FilterEditorWindow.Tick(GameController);
+
         var playerInvCount = GameController?.Game?.IngameState?.Data?.ServerData?.PlayerInventories?.Count;
         if (playerInvCount is null or 0)
             return null;
+
+        if (Settings.AutoClickHoveredLootInRange.Value)
+        {
+            var uiHover = GameController.IngameState.UIHover;
+            var uiHoverElement = GameController.IngameState.UIHoverElement;
+
+            // Use UIHoverElement as fallback if UIHover is null/empty
+            var activeHover = uiHover is { Address: not 0 } ? uiHover : uiHoverElement;
+
+            if (Settings.DebugHighlight)
+            {
+                DebugWindow.LogMsg($"AutoHover Debug: UIHover={uiHover?.Address:X}, UIHoverElement={uiHoverElement?.Address:X}, ActiveHover={activeHover?.Address:X}");
+            }
+
+            if (activeHover is { Address: not 0 } &&
+                !GameController.IngameState.IngameUi.InventoryPanel.IsVisible &&
+                !Input.IsKeyDown(Keys.LButton))
+            {
+                if (_sinceLastClick.ElapsedMilliseconds > Settings.PauseBetweenClicks.Value)
+                {
+                    var groundItem = GameController.IngameState.IngameUi.ItemsOnGroundLabelElement.VisibleGroundItemLabels?
+                        .FirstOrDefault(e => e.Label?.Address == activeHover.Address);
+
+                    if (Settings.DebugHighlight && activeHover.Address != 0)
+                    {
+                        DebugWindow.LogMsg($"AutoHover Debug: GroundItem={groundItem != null}, Address match check for {activeHover.Address:X}");
+                    }
+
+                    if (groundItem != null)
+                    {
+                        var doWePickThis = DoWePickThis(new PickItItemData(groundItem, GameController));
+                        if (Settings.DebugHighlight)
+                        {
+                            DebugWindow.LogMsg($"AutoHover Debug: DoWePickThis={doWePickThis}, Distance={groundItem.Entity.DistancePlayer}");
+                        }
+
+                        if (doWePickThis && groundItem.Entity.DistancePlayer < 20f)
+                        {
+                            _sinceLastClick.Restart();
+                            Input.Click(MouseButtons.Left);
+                            if (Settings.DebugHighlight)
+                            {
+                                DebugWindow.LogMsg($"AutoHover: Clicked item!");
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         _inventoryItems = GameController.Game.IngameState.Data.ServerData.PlayerInventories[0].Inventory;
         if (Input.GetKeyState(Settings.LazyLootingPauseKey)) DisableLazyLootingTill = DateTime.Now.AddSeconds(2);
@@ -157,6 +213,8 @@ public partial class PickIt : BaseSettingsPlugin<PickItSettings>
             var matched = f.Matches(new ItemData(h.Entity, GameController));
             DebugWindow.LogMsg($"Debug item match: {matched}");
         }
+
+        FilterEditorWindow.Render(GameController);
     }
 
     private void DrawInventoryCells()

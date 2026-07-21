@@ -7,6 +7,7 @@ using System.Threading;
 using ExileCore;
 using ImGuiNET;
 using ItemFilterLibrary;
+using PickIt.Editor;
 using static PickIt.PickIt;
 
 namespace PickIt;
@@ -38,11 +39,12 @@ public class RulesDisplay
             "Rule Files\nFiles are loaded in order, so easier to process (common item queries hit more often that others) rule sets should be loaded first.");
         ImGui.Separator();
 
-        if (ImGui.BeginTable("RulesTable", 3, ImGuiTableFlags.Borders | ImGuiTableFlags.Resizable))
+        if (ImGui.BeginTable("RulesTable", 4, ImGuiTableFlags.Borders | ImGuiTableFlags.Resizable))
         {
             ImGui.TableSetupColumn("Drag", ImGuiTableColumnFlags.WidthFixed, 40);
             ImGui.TableSetupColumn("Toggle", ImGuiTableColumnFlags.WidthFixed, 50);
             ImGui.TableSetupColumn("File", ImGuiTableColumnFlags.None);
+            ImGui.TableSetupColumn("Edit", ImGuiTableColumnFlags.WidthFixed, 50);
             ImGui.TableHeadersRow();
 
             var reorderPending = false;
@@ -138,6 +140,12 @@ public class RulesDisplay
                 }
 
                 ImGui.PopID();
+
+                ImGui.TableSetColumnIndex(3);
+                ImGui.PushID($"edit_{rule.Location}");
+                if (ImGui.SmallButton("Edit"))
+                    FilterEditorWindow.Open(fileFullPath);
+                ImGui.PopID();
             }
 
             ImGui.EndTable();
@@ -168,7 +176,7 @@ public class RulesDisplay
             }
         }
     }
-    private static string GetPickitConfigFileDirectory()
+    public static string GetPickitConfigFileDirectory()
     {
         var pickitConfigFileDirectory = Main.ConfigDirectory;
         if (!string.IsNullOrEmpty(Main.Settings.CustomConfigDir))

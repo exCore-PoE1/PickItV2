@@ -16,11 +16,19 @@ public class PickItSettings : ISettings
     public InventoryRender InventoryRender { get; set; } = new InventoryRender();
     public HotkeyNode ProfilerHotkey { get; set; } = Keys.None;
     public HotkeyNode PickUpKey { get; set; } = Keys.F;
+
+    [Menu(null, "While the Filter Editor is open, snapshot the hovered item into the grab pane")]
+    public HotkeyNode GrabItemKey { get; set; } = Keys.G;
+
     public ToggleNode PickUpWhenInventoryIsFull { get; set; } = new ToggleNode(false);
     public RangeNode<int> PickupRange { get; set; } = new RangeNode<int>(600, 1, 1000);
     public ToggleNode IgnoreMoving { get; set; } = new ToggleNode(false);
     public RangeNode<int> ItemDistanceToIgnoreMoving { get; set; } = new RangeNode<int>(20, 0, 1000);
     public RangeNode<int> PauseBetweenClicks { get; set; } = new RangeNode<int>(100, 0, 500);
+
+    [Menu(null, "Auto pick up any hovered items that match configured filters")]
+    public ToggleNode AutoClickHoveredLootInRange { get; set; } = new ToggleNode(false);
+
     public ToggleNode LazyLooting { get; set; } = new ToggleNode(false);
     public ToggleNode NoLazyLootingWhileEnemyClose { get; set; } = new ToggleNode(false);
     public HotkeyNode LazyLootingPauseKey { get; set; } = new HotkeyNode(Keys.Space);
