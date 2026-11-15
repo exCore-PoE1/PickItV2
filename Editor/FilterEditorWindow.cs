@@ -452,7 +452,7 @@ public static class FilterEditorWindow
             ? $"{baseName}  -  {className}"
             : (string.IsNullOrEmpty(baseName) ? className : baseName);
 
-        ImGui.BeginChild("card", new Vector2(0, 0), ImGuiChildFlags.Border | ImGuiChildFlags.AutoResizeY);
+        ImGui.BeginChild("card", new Vector2(0, 0), ImGuiChildFlags.Borders | ImGuiChildFlags.AutoResizeY);
 
         ImGui.PushStyleColor(ImGuiCol.Text, Controls.Accent);
         ImGui.TextUnformatted(string.IsNullOrEmpty(header) ? "(item)" : header);
